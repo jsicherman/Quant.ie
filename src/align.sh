@@ -1,7 +1,7 @@
 #!/bin/bash
 
 GENOME="human"
-GENOME_DIR="/cosmos/data/pipeline-output/rnaseq/references/mm10_ncbi"
+GENOME_DIR="/cosmos/data/pipeline-output/rnaseq/references/mm10_ensembl98"
 IN_DIR=""
 OUT_DIR=""
 PAIRED=false
@@ -11,9 +11,9 @@ while getopts ":g:i:o:pht:" opt; do
   case $opt in
     g) GENOME="$OPTARG"
     case $GENOME in
-      human) GENOME_DIR="/cosmos/data/pipeline-output/rnaseq/references/mm10_ncbi"
+      human) GENOME_DIR="/cosmos/data/pipeline-output/rnaseq/references/mm10_ensembl98"
       ;;
-      mouse) GENOME_DIR="/cosmos/data/pipeline-output/rnaseq/references/hg38_ncbi"
+      mouse) GENOME_DIR="/cosmos/data/pipeline-output/rnaseq/references/hg38_ensembl98"
       ;;
     esac
     ;;
@@ -25,7 +25,7 @@ while getopts ":g:i:o:pht:" opt; do
     ;;
     t) N_THREAD="$OPTARG"
     ;;
-    h) echo "usage: quantify [-g [human|mouse]] [-p] [-t threads] -i input-directory -o output-directory"
+    h) echo "usage: align [-g [human|mouse]] [-p] [-t threads] -i input-directory -o output-directory"
     exit
     ;;
     \?) echo "Invalid option -$OPTARG" 1>&2
