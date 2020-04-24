@@ -8,7 +8,7 @@ library(parallel)
 
 # Initialize --------------------------------------------------------------
 
-args <- commandArgs(trailingOnly = T)
+args <- commandArgs(T)
 
 if(length(args) < 3) {
   stop('Usage: Rscript quantify.R <human|mouse> <paired> <input directory> [output directory] [cores]', call. = F)
@@ -59,11 +59,20 @@ FILES <- list.files(IN_DIR, '\\.bam$')
 # Generate a list of sparse Matrices (for each sample) that has quantified introns,
 # exons, etc. in columns and gene IDs on rows.
 COUNTS <- mclapply(FILES, function(file) {
-  reads <- tryCatch(ifelse(PAIRED, readGAlignmentsPairs, readGAlignments)(file.path(IN_DIR, file), param = PARAM.BAM),
-                    error = function(message) {
-                      message('There are no genome reads mapped in BAM') 
-                      NULL
-                    })
+  if(PAIRED) {
+    reads <- tryCatch(readGAlignmentPairs(file.path(IN_DIR, file), param = PARAM.BAM),
+                      error = function(message) {
+                        message('There are no genome reads mapped in BAM') 
+                        NULL
+                      })
+  } else {
+    reads <- tryCatch(readGAlignments(file.path(IN_DIR, file), param = PARAM.BAM),
+                      error = function(message) {
+                        message('There are no genome reads mapped in BAM') 
+                        NULL
+                      })
+  }
+  
   
   if(is.null(reads)) {
     counts.exon <- 0

@@ -5,10 +5,10 @@ library(data.table)
 
 # Rscript buildReference.R <human|mouse>
 
-if(length(commandArgs(trailingOnly = T)) == 0)
+if(length(commandArgs(T)) == 0)
   stop('Usage: Rscript buildReference.R <human|mouse>')
 
-SPECIES <- commandArgs(trailingOnly = T)[1]
+SPECIES <- commandArgs(T)[1]
 
 if(!(SPECIES %in% c('human', 'mouse')))
   stop('Usage: Rscript buildReference.R <human|mouse>')
