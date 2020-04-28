@@ -49,8 +49,8 @@ if(!file.exists(file.path('references', paste0(SPECIES, '.Rdata'))))
 load(file.path('references', paste0(SPECIES, '.Rdata')))
 PARAM.BAM <- ScanBamParam(tag = 'NH', what = c('qname', 'flag'))
 
-MITOCHONDRIAL <- EXONS[Filter(function(gene) gene %in% names(EXONS), ANNOTATIONS$gene_id[ANNOTATIONS$mitochondrial])]
-RRNA <- EXONS[Filter(function(gene) gene %in% names(EXONS), ANNOTATIONS$gene_id[ANNOTATIONS$gene_biotype == 'rRNA'])]
+MITOCHONDRIAL <- EXONS[Filter(function(gene) gene %in% names(EXONS), ANNOTATIONS$gene_name[ANNOTATIONS$mitochondrial])]
+RRNA <- EXONS[Filter(function(gene) gene %in% names(EXONS), ANNOTATIONS$gene_name[ANNOTATIONS$gene_biotype == 'rRNA'])]
 
 # Process -----------------------------------------------------------------
 
@@ -92,21 +92,24 @@ COUNTS <- mclapply(FILES, function(file) {
     no_junc <- elementNROWS(junc) == 0
     intron.overlap <- overlapsAny(reads.unique, INTRONS, minoverlap = 3, ignore.strand = T)
     
-    counts.intron <- assay(summarizeOverlaps(INTRONS, reads.unique[no_junc & intron.overlap],
-                                                'IntersectionNotEmpty',
-                                                ignore.strand = T))
+    counts <- assay(summarizeOverlaps(EXONS, reads.unique[!no_junc | !intron.overlap],
+                                      'IntersectionNotEmpty',
+                                      ignore.strand = T))
+    counts <- cbind(counts, 0)
+    colnames(counts) <- c('exon', 'intron')
     
-    counts.exon <- assay(summarizeOverlaps(EXONS, reads.unique[!no_junc | !intron.overlap],
-                                          'IntersectionNotEmpty',
-                                          ignore.strand = T))
+    # Ensure similar ordering and dimensions
+    introns <- assay(summarizeOverlaps(INTRONS, reads.unique[no_junc & intron.overlap],
+                                       'IntersectionNotEmpty',
+                                       ignore.strand = T))
+    counts[rownames(introns), 'intron'] <- introns
+    rm(introns)
     
     counts.mito <- length(unique(values(subsetByOverlaps(reads, MITOCHONDRIAL, ignore.strand = T))$qname))
     counts.rRNA <- length(unique(values(subsetByOverlaps(reads, RRNA, ignore.strand = T))$qname))
   }
   
-  list(introns = counts.intron, exons = counts.exon,
-       mitochondrial = counts.mito, rRNA = counts.rRNA,
-       total = total)
+  list(counts = counts %>% Matrix(sparse = T), mitochondrial = counts.mito, rRNA = counts.rRNA, total = total)
 })
 
 names(COUNTS) <- unlist(lapply(FILES, tools::file_path_sans_ext))
@@ -116,12 +119,11 @@ names(COUNTS) <- unlist(lapply(FILES, tools::file_path_sans_ext))
 if(length(COUNTS) > 0) {
   # Save aggregated intron/exon as their corresponding file
   # Gene IDs will be on rows, samples will be on columns
-  lapply(c('introns', 'exons'), function(pivot) {
+  lapply(c('intron', 'exon'), function(pivot) {
     do.call(cbind, lapply(names(COUNTS), function(sample)
-      COUNTS[[sample]][[pivot]]
+      COUNTS[[sample]][['counts']][, pivot]
     )) %>% as.matrix %>% Matrix(sparse = T) %>%
-      `colnames<-`(names(COUNTS)) %>%
-      saveRDS(file.path(OUT_DIR, paste0(pivot, '.rds')))
+      `colnames<-`(names(COUNTS)) %>% saveRDS(file.path(OUT_DIR, paste0(pivot, '.rds')))
   })
   
   # Save quality metrics (number mapping to mitochondrial genes, rRNA and total reads)

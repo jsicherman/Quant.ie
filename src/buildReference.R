@@ -63,15 +63,14 @@ ANNOTATIONS$gene_biotype <- ANNOTATIONS$gene_biotype %>% as.factor
 ANNOTATIONS[, c('seqnames', 'start', 'end', 'width')] <- NULL
 
 # Exons
-EXONS <- reduce(split(REFERENCE.EXONS, REFERENCE.EXONS$gene_id)) %>% as('GRangesList')
+EXONS <- reduce(split(REFERENCE.EXONS, REFERENCE.EXONS$gene_name)) %>% as('GRangesList')
 
 # Introns, mapped to overlapping genes
 strand(REFERENCE.GENES) <- '*'
 strand(REFERENCE.EXONS) <- '*'
-INTRONS <- setdiff(REFERENCE.GENES[, c('gene_id', 'transcript_id')],
-                   REFERENCE.EXONS[, c('gene_id', 'transcript_id')])
+INTRONS <- setdiff(REFERENCE.GENES, REFERENCE.EXONS)
 intron.map <- findOverlaps(INTRONS, REFERENCE.GENES, type = 'within', select = 'all') %>% as.matrix
-INTRONS <- split(INTRONS[intron.map[, 1]], REFERENCE.GENES$gene_id[intron.map[, 2]]) %>% as('GRangesList')
+INTRONS <- reduce(split(INTRONS[intron.map[, 1]], REFERENCE.GENES$gene_name[intron.map[, 2]])) %>% as('GRangesList')
 rm(intron.map)
 
 # And save
