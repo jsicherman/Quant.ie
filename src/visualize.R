@@ -10,8 +10,8 @@ FILE_PATH <- 'output'
 if(length(commandArgs(T)) > 0)
   FILE_PATH <- commandArgs(T)[1]
 
-exons <- readRDS(file.path(FILE_PATH, 'exons.rds'))
-introns <- readRDS(file.path(FILE_PATH, 'introns.rds'))
+exons <- readRDS(file.path(FILE_PATH, 'exon.rds'))
+introns <- readRDS(file.path(FILE_PATH, 'intron.rds'))
 qc <- read.csv(file.path(FILE_PATH, 'qc.tsv'), sep = '\t') %>% `rownames<-`(.[, 1]) %>% .[, -1]
 
 exons.count <- Matrix::colSums(exons)
