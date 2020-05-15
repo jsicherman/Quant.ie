@@ -105,11 +105,15 @@ COUNTS <- mclapply(FILES, function(file) {
     counts[rownames(introns), 'intron'] <- introns
     rm(introns)
     
+    fpkm <- cbind(rpkm(counts[, 'exon'], EXONS.SIZES), rpkm(counts[, 'intron'], INTRON.SIZES))
+    
     counts.mito <- length(unique(values(subsetByOverlaps(reads, MITOCHONDRIAL, ignore.strand = T))$qname))
     counts.rRNA <- length(unique(values(subsetByOverlaps(reads, RRNA, ignore.strand = T))$qname))
   }
   
-  list(counts = counts %>% Matrix(sparse = T), mitochondrial = counts.mito, rRNA = counts.rRNA, total = total)
+  list(counts = counts %>% Matrix(sparse = T),
+       fpkm = fpkm %>% Matrix(sparse = T),
+       mitochondrial = counts.mito, rRNA = counts.rRNA, total = total)
 })
 
 names(COUNTS) <- unlist(lapply(FILES, tools::file_path_sans_ext))
@@ -119,11 +123,13 @@ names(COUNTS) <- unlist(lapply(FILES, tools::file_path_sans_ext))
 if(length(COUNTS) > 0) {
   # Save aggregated intron/exon as their corresponding file
   # Gene IDs will be on rows, samples will be on columns
-  lapply(c('intron', 'exon'), function(pivot) {
-    do.call(cbind, lapply(names(COUNTS), function(sample)
-      COUNTS[[sample]][['counts']][, pivot]
-    )) %>% as.matrix %>% Matrix(sparse = T) %>%
-      `colnames<-`(names(COUNTS)) %>% saveRDS(file.path(OUT_DIR, paste0(pivot, '.rds')))
+  lapply(c('counts', 'fpkm'), function(type) {
+    lapply(c('intron', 'exon'), function(pivot) {
+      do.call(cbind, lapply(names(COUNTS), function(sample)
+        COUNTS[[sample]][[type]][, pivot]
+      )) %>% as.matrix %>% Matrix(sparse = T) %>%
+        `colnames<-`(names(COUNTS)) %>% saveRDS(file.path(OUT_DIR, paste0(type, '_', pivot, '.rds')))
+    })
   })
   
   # Save quality metrics (number mapping to mitochondrial genes, rRNA and total reads)

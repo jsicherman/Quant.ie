@@ -64,6 +64,7 @@ ANNOTATIONS[, c('seqnames', 'start', 'end', 'width')] <- NULL
 
 # Exons
 EXONS <- reduce(split(REFERENCE.EXONS, REFERENCE.EXONS$gene_name)) %>% as('GRangesList')
+EXONS.SIZES <- sum(width(EXONS))
 
 # Introns, mapped to overlapping genes
 strand(REFERENCE.GENES) <- '*'
@@ -73,7 +74,10 @@ intron.map <- findOverlaps(INTRONS, REFERENCE.GENES, type = 'within', select = '
 INTRONS <- reduce(split(INTRONS[intron.map[, 1]], REFERENCE.GENES$gene_name[intron.map[, 2]])) %>% as('GRangesList')
 rm(intron.map)
 
+INTRONS.SIZES <- EXONS.SIZES
+INTRONS.SIZES[names(INTRONS)] <- sum(width(INTRONS))
+
 # And save
 if(!dir.exists('references'))
   dir.create('references', recursive = T)
-save(INTRONS, EXONS, ANNOTATIONS, file = file.path('references', paste0(SPECIES, '.Rdata')))
+save(INTRONS, EXONS, INTRONS.SIZES, EXONS.SIZES, ANNOTATIONS, file = file.path('references', paste0(SPECIES, '.Rdata')))
