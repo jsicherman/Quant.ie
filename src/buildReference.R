@@ -1,7 +1,9 @@
-library(GenomicFeatures)
-library(rtracklayer)
-library(dplyr)
-library(data.table)
+suppressPackageStartupMessages({
+  library(GenomicFeatures)
+  library(rtracklayer)
+  library(dplyr)
+  library(data.table)
+})
 
 # Rscript buildReference.R <human|mouse>
 
@@ -78,6 +80,6 @@ INTRONS.SIZES <- EXONS.SIZES
 INTRONS.SIZES[names(INTRONS)] <- sum(width(INTRONS))
 
 # And save
-if(!dir.exists('references'))
-  dir.create('references', recursive = T)
-save(INTRONS, EXONS, INTRONS.SIZES, EXONS.SIZES, ANNOTATIONS, file = file.path('references', paste0(SPECIES, '.Rdata')))
+if(!dir.exists('../references'))
+  dir.create('../references', recursive = T)
+save(INTRONS, EXONS, INTRONS.SIZES, EXONS.SIZES, ANNOTATIONS, file = file.path('../references', paste0(SPECIES, '.Rdata')))

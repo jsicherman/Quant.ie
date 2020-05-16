@@ -1,10 +1,12 @@
-library(Rsamtools)
-library(GenomicAlignments)
-library(edgeR)
-library(rtracklayer)
-library(dplyr)
-library(Matrix)
-library(parallel)
+suppressPackageStartupMessages({
+  library(Rsamtools)
+  library(GenomicAlignments)
+  library(edgeR)
+  library(rtracklayer)
+  library(dplyr)
+  library(Matrix)
+  library(parallel)
+})
 
 # Initialize --------------------------------------------------------------
 
@@ -12,41 +14,43 @@ args <- commandArgs(T)
 
 if(length(args) < 3) {
   stop('Usage: Rscript quantify.R <human|mouse> <paired> <input directory> [output directory] [cores]', call. = F)
-} else if (!dir.exists(args[1])) {
-  stop(paste0("'", args[1], "' is not a valid directory."), call. = F)
+} else if (!dir.exists(args[3])) {
+  stop(paste0("'", args[3], "' is not a valid directory."), call. = F)
 }
 
 SPECIES <- args[1]
 
-if(!(species %in% c('human', 'mouse')))
+if(!(SPECIES %in% c('human', 'mouse')))
   stop('Usage: Rscript quantify.R <human|mouse> <paired> <input directory> [output directory] [cores]', call. = F)
 
-IN_DIR <- args[2]
-OUT_DIR <- args[2]
+PAIRED <- args[2] == 'true'
 
-PAIRED <- args[3] == 'true'
+IN_DIR <- args[3]
+OUT_DIR <- args[3]
 
 if(length(args) > 3)
   OUT_DIR <- args[4]
 
+CORES <- 5
 if(length(args) > 4) {
   CORES <- suppressWarnings(as.integer(args[5]))
   if(is.na(CORES)) {
     message('Cores (argument 5) was non-integer. Defaulting to 5.')
-    CORES <- 5
   }
 }
 options(mc.cores = CORES)
 
-if(!dir.exists(OUT_DIR))
-  dir.create(OUT_DIR, recursive = T)
+if(!dir.exists(file.path(OUT_DIR, 'quantified')))
+  dir.create(file.path(OUT_DIR, 'quantified'), recursive = T)
 
 # Build the reference if it doesn't exist already.
-if(!file.exists(file.path('references', paste0(SPECIES, '.Rdata'))))
-  system(paste('Rscript src/buildReference.R', SPECIES))
+if(!file.exists(file.path('../references', paste0(SPECIES, '.Rdata')))) {
+  message('Reference didn\'t exist. Building.')
+  system(paste('Rscript buildReference.R', SPECIES))
+}
 
 # Load the genome information
-load(file.path('references', paste0(SPECIES, '.Rdata')))
+load(file.path('../references', paste0(SPECIES, '.Rdata')))
 PARAM.BAM <- ScanBamParam(tag = 'NH', what = c('qname', 'flag'))
 
 MITOCHONDRIAL <- EXONS[Filter(function(gene) gene %in% names(EXONS), ANNOTATIONS$gene_name[ANNOTATIONS$mitochondrial])]
@@ -105,7 +109,8 @@ COUNTS <- mclapply(FILES, function(file) {
     counts[rownames(introns), 'intron'] <- introns
     rm(introns)
     
-    fpkm <- cbind(rpkm(counts[, 'exon'], EXONS.SIZES), rpkm(counts[, 'intron'], INTRON.SIZES))
+    fpkm <- cbind(rpkm(counts[, 'exon'], EXONS.SIZES), rpkm(counts[, 'intron'], INTRONS.SIZES))
+    colnames(fpkm) <- c('exon', 'intron')
     
     counts.mito <- length(unique(values(subsetByOverlaps(reads, MITOCHONDRIAL, ignore.strand = T))$qname))
     counts.rRNA <- length(unique(values(subsetByOverlaps(reads, RRNA, ignore.strand = T))$qname))
@@ -125,15 +130,15 @@ if(length(COUNTS) > 0) {
   # Gene IDs will be on rows, samples will be on columns
   lapply(c('counts', 'fpkm'), function(type) {
     lapply(c('intron', 'exon'), function(pivot) {
-      do.call(cbind, lapply(names(COUNTS), function(sample)
-        COUNTS[[sample]][[type]][, pivot]
+      do.call(cbind, lapply(COUNTS, function(sample)
+        sample[[type]][, pivot]
       )) %>% as.matrix %>% Matrix(sparse = T) %>%
-        `colnames<-`(names(COUNTS)) %>% saveRDS(file.path(OUT_DIR, paste0(type, '_', pivot, '.rds')))
+        `colnames<-`(names(COUNTS)) %>% saveRDS(file.path(OUT_DIR, 'quantified', paste0(type, '_', pivot, '.rds')))
     })
   })
   
   # Save quality metrics (number mapping to mitochondrial genes, rRNA and total reads)
   do.call(cbind, lapply(c('mitochondrial', 'rRNA', 'total'), function(pivot) {
     sapply(names(COUNTS), function(sample) COUNTS[[sample]][[pivot]])
-  })) %>% `colnames<-`(c('mitochondrial', 'rRNA', 'total')) %>% write.table(file.path(OUT_DIR, 'qc.tsv'), quote = F, sep = '\t')
+  })) %>% `colnames<-`(c('mitochondrial', 'rRNA', 'total')) %>% write.table(file.path(OUT_DIR, 'quantified', 'qc.tsv'), quote = F, sep = '\t')
 }

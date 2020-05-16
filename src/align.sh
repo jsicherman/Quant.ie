@@ -8,7 +8,7 @@ OUT_DIR=""
 PAIRED=false
 N_THREAD=10
 
-while getopts ":g:i:o:pht:" opt; do
+while getopts ":g:i:o:p:ht:" opt; do
   case $opt in
     g) GENOME="$OPTARG"
     case $GENOME in
@@ -54,9 +54,7 @@ rm -f tasks.sh
 
 prog() {
   local w=80 p=$1 t=$2 shift
-  # create a string of spaces, then change them to dots
   printf -v dots "%*s" "$(( $p*$w/$t ))" ""; dots=${dots// /#};
-  # print those dots on a fixed-width space plus the percentage etc. 
   printf "\r\e[K|%-*s| %3d %% %s" "$w" "$dots" "$(($p*100/$t))"; 
 }
 
@@ -103,8 +101,9 @@ if [ "$PAIRED" = true ]; then
     
     chmod +x scripts/$fileName.sh
   done
+  
   prog 1 1
-  echo ""
+  printf "\n"
 else
   echo "Generating scripts for unpaired alignment"
   
@@ -131,8 +130,9 @@ else
     
     chmod +x $fileName.sh
   done
+  
   prog 1 1
-  echo ""
+  printf "\n"
 fi
 
 echo "#!/bin/bash" >> tasks.sh
@@ -152,4 +152,4 @@ done
 
 echo "Processed $(($i-1)) files. Running STAR."
 
-# sbatch --array "1-$i%3" tasks.sh
+sbatch --array "1-$i%3" tasks.sh
