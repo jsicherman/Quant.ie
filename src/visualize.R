@@ -1,7 +1,6 @@
 library(Matrix)
 library(dplyr)
 library(ggplot2)
-library(reshape2)
 library(cowplot)
 library(gridExtra)
 theme_set(theme_cowplot())
@@ -27,46 +26,55 @@ qc.STAR <- do.call(rbind, lapply(names(exons.count), function(sample) {
                multimapped = file[25, 2] %>% as.integer,
                unmapped = c(file[28, 2], file[30, 2], file[32, 2]) %>% as.integer %>% sum) %>% as.matrix
   })) %>% colSums
-})) %>% `rownames<-`(names(exons.count))# %>% reshape2::melt(varnames = c('sample', 'type'))
-
-exons.only <- exons * (((exons > 0) - (introns > 0)) == 1)
-introns.only <- introns * (((introns > 0) - (exons > 0)) == 1)
-overlap <- (exons + introns) * (!exons.only & !introns.only)
-
-exons.count <- Matrix::colSums(exons.only)
-introns.count <- Matrix::colSums(introns.only)
+})) %>% `rownames<-`(names(exons.count))
 
 exons.count <- Matrix::colSums(exons)
 introns.count <- Matrix::colSums(introns)
 
-data.frame(Sample = names(exons.count),
-           Type = c(rep('Exonic', length(exons.count)),
-                    rep('Intronic', length(introns.count)),
-                    rep('Intergenic', length(exons.count)),
-                    rep('Multimapped', length(exons.count)),
-                    rep('Unmapped', length(exons.count))),
-           Reads = c(exons.count,
-                     introns.count,
-                     qc.STAR[, 'unique'] - exons.count,
-                     qc.STAR[, 'multimapped'],
-                     qc.STAR[, 'unmapped'])) %>%
-  ggplot(aes(Sample, Reads, fill = Type)) + geom_bar(stat = 'identity') +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_y_continuous(expand = c(0, 0)) + ggtitle('Raw Counts') + ylab('Counts')
-ggsave2(file.path(FILE_PATH, 'quantified', 'mapping_distribution.pdf'), width = 11, height = 6)
+grid.arrange(data.frame(Sample = names(exons.count),
+                        Type = c(rep('Exonic', length(exons.count)), rep('Intronic', length(introns.count)),
+                                 rep('Intergenic', length(exons.count)), rep('Multimapped', length(exons.count)),
+                                 rep('Unmapped', length(exons.count))),
+                        Reads = c(exons.count, introns.count,
+                                  qc.STAR[, 'unique'] - exons.count - introns.count, qc.STAR[, 'multimapped'],
+                                  qc.STAR[, 'unmapped']) / qc.STAR[, 'total']) %>%
+               ggplot(aes(Sample, Reads, fill = Type)) + geom_bar(stat = 'identity') +
+               theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8), legend.position = 'none') +
+               scale_y_continuous(expand = c(0, 0), labels = scales::percent) +
+               scale_x_discrete(breaks = names(exons.count)[seq(1, length(exons.count), by = floor(length(exons.count) / 50) + 1)]) +
+               ggtitle('Fractional Counts') + ylab('Counts') + labs(tag = 'A'),
+             data.frame(Sample = names(exons.count),
+                        Type = c(rep('Exonic', length(exons.count)), rep('Intronic', length(introns.count)),
+                                 rep('Intergenic', length(exons.count)), rep('Multimapped', length(exons.count)),
+                                 rep('Unmapped', length(exons.count))),
+                        Reads = c(exons.count, introns.count,
+                                  qc.STAR[, 'unique'] - exons.count, qc.STAR[, 'multimapped'],
+                                  qc.STAR[, 'unmapped'])) %>%
+               ggplot(aes(Sample, Reads, fill = Type)) + geom_bar(stat = 'identity') +
+               theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8)) +
+               scale_y_continuous(expand = c(0, 0)) +
+               scale_x_discrete(breaks = names(exons.count)[seq(1, length(exons.count), by = floor(length(exons.count) / 50) + 1)]) +
+               ggtitle('Raw Counts') + ylab(element_blank()) + labs(tag = 'B'),
+             nrow = 1) -> grid
+
+ggsave2(file.path(FILE_PATH, 'quantified', 'mapping_distribution.pdf'), grid, width = 11, height = 6)
   
 grid.arrange(data.frame(Sample = names(exons.count),
                         Location = c(rep('Exon', length(exons.count)), rep('Intron', length(introns.count))) %>% factor(c('Intron', 'Exon')),
                         Reads = c(exons.count, introns.count) / (exons.count + introns.count)) %>%
                ggplot(aes(Sample, Reads, fill = Location)) + geom_bar(stat = 'identity') +
-               theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = 'none') +
-               scale_y_continuous(expand = c(0, 0)) + ggtitle('Fractional Counts') + ylab('Counts') + labs(tag = 'A'),
+               theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8), legend.position = 'none') +
+               scale_y_continuous(expand = c(0, 0), labels = scales::percent) +
+               scale_x_discrete(breaks = names(exons.count)[seq(1, length(exons.count), by = floor(length(exons.count) / 50) + 1)]) +
+               ggtitle('Fractional Counts') + ylab('Counts') + labs(tag = 'A'),
              data.frame(Sample = names(exons.count),
                         Location = c(rep('Exon', length(exons.count)), rep('Intron', length(introns.count))) %>% factor(c('Intron', 'Exon')),
                         Reads = c(exons.count, introns.count)) %>%
                ggplot(aes(Sample, Reads, fill = Location)) + geom_bar(stat = 'identity') +
-               theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-               scale_y_continuous(expand = c(0, 0)) + ggtitle('Raw Counts') + ylab(element_blank()) + labs(tag = 'B'),
+               theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8)) +
+               scale_y_continuous(expand = c(0, 0)) +
+               scale_x_discrete(breaks = names(exons.count)[seq(1, length(exons.count), by = floor(length(exons.count) / 50) + 1)]) +
+               ggtitle('Raw Counts') + ylab(element_blank()) + labs(tag = 'B'),
              nrow = 1) -> grid
 
 ggsave2(file.path(FILE_PATH, 'quantified', 'count_distribution.pdf'), grid, width = 11, height = 6)
