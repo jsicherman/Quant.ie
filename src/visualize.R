@@ -14,6 +14,9 @@ exons <- readRDS(file.path(FILE_PATH, 'quantified', 'counts_exon.rds'))
 introns <- readRDS(file.path(FILE_PATH, 'quantified', 'counts_intron.rds'))
 qc <- read.csv(file.path(FILE_PATH, 'quantified', 'qc.tsv'), sep = '\t')
 
+exons.count <- Matrix::colSums(exons)
+introns.count <- Matrix::colSums(introns)
+
 # There is a log for every lane (ie. they're unmerged) so we need to do this stupidity.
 LOGS <- list.files(file.path(FILE_PATH, 'logs'))
 
@@ -27,9 +30,6 @@ qc.STAR <- do.call(rbind, lapply(names(exons.count), function(sample) {
                unmapped = c(file[28, 2], file[30, 2], file[32, 2]) %>% as.integer %>% sum) %>% as.matrix
   })) %>% colSums
 })) %>% `rownames<-`(names(exons.count))
-
-exons.count <- Matrix::colSums(exons)
-introns.count <- Matrix::colSums(introns)
 
 grid.arrange(data.frame(Sample = names(exons.count),
                         Type = c(rep('Exonic', length(exons.count)), rep('Intronic', length(introns.count)),

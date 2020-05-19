@@ -8,7 +8,7 @@ OUT_DIR=""
 PAIRED=false
 N_THREAD=10
 
-while getopts ":g:i:o:p:ht:" opt; do
+while getopts ":g:i:o:pht:" opt; do
   case $opt in
     g) GENOME="$OPTARG"
     case $GENOME in
@@ -72,7 +72,6 @@ if [ "$PAIRED" = true ]; then
     reverse+=("$file")
   done
 
-  #generating STAR scripts that will be run in parallel
   for ((i=0;i<${#forward[@]};++i)); do
     prog "$i" "${#forward[@]}"
 
@@ -84,13 +83,19 @@ if [ "$PAIRED" = true ]; then
     
     fileName=`echo "$fileNameForward" | rev | cut -d_ -f3- | rev`
     
+    # LoadAndRemove for the last three alignments. Should clean up shared memory, but should double check
+    GENOME_LOAD=LoadAndKeep
+    if [ "$i" -ge "$(( ${#forward[@]} - 3 ))" ]; then
+      GENOME_LOAD=LoadAndRemove
+    fi
+    
     rm -f "scripts/$fileName.sh"
     
     echo "#!/bin/bash" >> scripts/$fileName.sh
     echo mkdir "$(realpath ./)/$fileName" >> scripts/$fileName.sh
     echo cd "$(realpath ./)/$fileName" >> scripts/$fileName.sh
     
-    echo "$STAR_PATH"STAR --genomeDir $GENOME_DIR --genomeLoad LoadAndKeep --runThreadN $N_THREAD --readFilesIn "${forward[$i]}" "${reverse[$i]}" --readFilesCommand zcat --outSAMtype BAM SortedByCoordinate --outReadsUnmapped Fastx --quantMode GeneCounts --limitBAMsortRAM 10000000000 --outFilterMultimapNmax 1 >> scripts/$fileName.sh
+    echo "$STAR_PATH"STAR --genomeDir $GENOME_DIR --genomeLoad $GENOME_LOAD --runThreadN $N_THREAD --readFilesIn "${forward[$i]}" "${reverse[$i]}" --readFilesCommand zcat --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --limitBAMsortRAM 10000000000 --outFilterMultimapNmax 1 >> scripts/$fileName.sh
     echo "$STAR_PATH"STAR --inputBAMfile Aligned.sortedByCoord.out.bam --runThreadN $N_THREAD --bamRemoveDuplicatesType UniqueIdentical --runMode inputAlignmentsFromBAM >> scripts/$fileName.sh
     
     echo mv Log.final.out "../logs/$fileName.out" >> scripts/$fileName.sh
@@ -107,11 +112,24 @@ if [ "$PAIRED" = true ]; then
 else
   echo "Generating scripts for unpaired alignment"
   
-  for file in $(find $IN_DIR -maxdepth 1 -type f | sort); do
-    prog "$i" "${#forward[@]}"
+  files=$(find $IN_DIR -maxdepth 1 -type f | sort)
+  for file in $files; do
+    prog "$i" "${#files[@]}"
     
     fileQualified="${file##*/}"
     fileName="${fileQualified%.*}"
+    
+    # Skip mate-pairs by file name in unpaired mode
+    if [[ $fileName == *"_L002_"* ]]; then
+      echo "Skipping mate-pair '${fileName}'"
+      continue
+    fi
+    
+    # LoadAndRemove for the last three alignments. Should clean up shared memory, but should double check
+    GENOME_LOAD=LoadAndKeep
+    if [ "$i" -ge "$(( ${#files[@]} - 2 ))" ]; then
+      GENOME_LOAD=LoadAndRemove
+    fi
     
     rm -f "scripts/$fileName.sh"
     
@@ -119,7 +137,7 @@ else
     echo mkdir "$(realpath ./)/$fileName" >> scripts/$fileName.sh
     echo cd "$(realpath ./)/$fileName" >> scripts/$fileName.sh
     
-    echo "$STAR_PATH"STAR --genomeDir $GENOME_DIR --genomeLoad LoadAndKeep --runThreadN $N_THREAD --readFilesIn $fileName --readFilesCommand zcat --outSAMtype BAM SortedByCoordinate --outReadsUnmapped Fastx --quantMode GeneCounts --limitBAMsortRAM 10000000000 --outFilterMultimapNmax 1 >> scripts/$fileName.sh
+    echo "$STAR_PATH"STAR --genomeDir $GENOME_DIR --genomeLoad $GENOME_LOAD --runThreadN $N_THREAD --readFilesIn $fileName --readFilesCommand zcat --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --limitBAMsortRAM 10000000000 --outFilterMultimapNmax 1 >> scripts/$fileName.sh
     echo "$STAR_PATH"STAR --inputBAMfile Aligned.sortedByCoord.out.bam --runThreadN $N_THREAD --bamRemoveDuplicatesType UniqueIdentical --runMode inputAlignmentsFromBAM >> scripts/$fileName.sh
     
     echo mv Log.final.out "../logs/$fileName.out" >> scripts/$fileName.sh
@@ -152,4 +170,5 @@ done
 
 echo "Processed $(($i-1)) files. Running STAR."
 
-sbatch --array "1-$i%3" tasks.sh
+# Allocate three Slurm nodes and run jobs spread across them
+salloc --spread-job -w cn[06-08] sbatch --array "1-$i%3" tasks.sh

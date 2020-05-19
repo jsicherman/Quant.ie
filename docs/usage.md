@@ -101,6 +101,6 @@ The directory provided should be the base directory of your project since it use
 
 The following figures will be generated:
 
-![](count_distribution.pdf)
+![](count_distribution.jpeg)
 
-![](mapping_distribution.pdf)
+![](mapping_distribution.jpeg)
