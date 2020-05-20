@@ -93,6 +93,8 @@ COUNTS <- mclapply(FILES, function(file) {
       reads.unique <- reads[values(reads)$flag < 1024]
     }
     
+    rm(reads)
+    
     junc <- junctions(reads.unique)
     no_junc <- elementNROWS(junc) == 0
     intron.overlap <- overlapsAny(reads.unique, INTRONS, minoverlap = 3, ignore.strand = T)
@@ -110,11 +112,17 @@ COUNTS <- mclapply(FILES, function(file) {
     counts[rownames(introns), 'intron'] <- introns
     rm(introns)
     
-    fpkm <- cbind(rpkm(counts[, 'exon'], EXONS.SIZES), rpkm(counts[, 'intron'], INTRONS.SIZES))
+    fpkm <- cbind(switch(all(counts[, 'exon'] == 0) + 1, rpkm(counts[, 'exon'], EXONS.SIZES), counts[, 'exon']),
+                  switch(all(counts[, 'intron'] == 0) + 1, rpkm(counts[, 'intron'], INTRONS.SIZES), counts[, 'intron']))
     colnames(fpkm) <- c('exon', 'intron')
     
-    counts.mito <- length(unique(values(subsetByOverlaps(reads, MITOCHONDRIAL, ignore.strand = T))$qname))
-    counts.rRNA <- length(unique(values(subsetByOverlaps(reads, RRNA, ignore.strand = T))$qname))
+    if(PAIRED) {
+      counts.mito <- length(unique(values(subsetByOverlaps(reads.unique, MITOCHONDRIAL, ignore.strand = T) %>% first)$qname))
+      counts.rRNA <- length(unique(values(subsetByOverlaps(reads.unique, RRNA, ignore.strand = T) %>% first)$qname))
+    } else {
+      counts.mito <- length(unique(values(subsetByOverlaps(reads.unique, MITOCHONDRIAL, ignore.strand = T))$qname))
+      counts.rRNA <- length(unique(values(subsetByOverlaps(reads.unique, RRNA, ignore.strand = T))$qname))
+    }
   }
   
   message(paste('Quantified', file))
@@ -134,16 +142,9 @@ if(length(COUNTS) > 0) {
   lapply(c('counts', 'fpkm'), function(type) {
     lapply(c('intron', 'exon'), function(pivot) {
       do.call(cbind, lapply(COUNTS, function(sample) {
-        tryCatch(sample[[type]][, pivot],
-                 error = function(message) {
-                   message(paste('No', pivot, type, 'for', sample))
-                   NULL
-                 })
-      })) %>% as.matrix %>% Matrix(sparse = T) %>%
-        `colnames<-`(lapply(1:length(COUNTS), function(sample) {
-          if(length(COUNTS[[sample]]) == 1) NULL
-          else names(COUNTS)[sample]
-        }) %>% unlist) %>% saveRDS(file.path(OUT_DIR, 'quantified', paste0(type, '_', pivot, '.rds')))
+        sample[[type]][, pivot]
+      })) %>% as.matrix %>% Matrix(sparse = T) %>% `colnames<-`(names(COUNTS)[sample]) %>%
+        saveRDS(file.path(OUT_DIR, 'quantified', paste0(type, '_', pivot, '.rds')))
     })
   })
   

@@ -144,7 +144,7 @@ else
     echo mkdir "$(realpath ./)/$fileName" >> scripts/$fileName.sh
     echo cd "$(realpath ./)/$fileName" >> scripts/$fileName.sh
     
-    echo "$STAR_PATH"STAR --genomeDir $GENOME_DIR --genomeLoad $GENOME_LOAD --runThreadN $N_THREAD --readFilesIn $fileName $ZCAT--outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --outReadsUnmapped Fastx --limitBAMsortRAM 10000000000 --outFilterMultimapNmax 1 >> scripts/$fileName.sh
+    echo "$STAR_PATH"STAR --genomeDir $GENOME_DIR --genomeLoad $GENOME_LOAD --runThreadN $N_THREAD --readFilesIn $fileName $ZCAT--outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --outReadsUnmapped Fastx --limitBAMsortRAM 10000000000 --outFilterMultimapNmax 1 --outFilterScoreMinOverLread 0.1 --outFilterMatchNminOverLread 0.1 >> scripts/$fileName.sh
     echo "$STAR_PATH"STAR --inputBAMfile Aligned.sortedByCoord.out.bam --runThreadN $N_THREAD --bamRemoveDuplicatesType UniqueIdentical --runMode inputAlignmentsFromBAM >> scripts/$fileName.sh
     
     echo mv Log.final.out "../logs/$fileName.out" >> scripts/$fileName.sh
