@@ -13,28 +13,18 @@ while getopts ":g:i:o:pht:n" opt; do
   case $opt in
     g) GENOME="$OPTARG"
     case $GENOME in
-      mouse) GENOME_DIR="/cosmos/data/pipeline-output/rnaseq/references/mm10_ensembl98"
-      ;;
-      human) GENOME_DIR="/cosmos/data/pipeline-output/rnaseq/references/hg38_ensembl98"
-      ;;
-    esac
-    ;;
-    i) IN_DIR="$OPTARG"
-    ;;
-    o) OUT_DIR="$OPTARG"
-    ;;
-    p) PAIRED=true
-    ;;
-    t) N_THREAD="$OPTARG"
-    ;;
-    n) N_NODES="$OPTARG"
-    ;;
+      mouse) GENOME_DIR="/cosmos/data/pipeline-output/rnaseq/references/mm10_ensembl98" ;;
+      human) GENOME_DIR="/cosmos/data/pipeline-output/rnaseq/references/hg38_ensembl98" ;;
+    esac ;;
+    i) IN_DIR="$OPTARG" ;;
+    o) OUT_DIR="$OPTARG" ;;
+    p) PAIRED=true ;;
+    t) N_THREAD="$OPTARG" ;;
+    n) N_NODES="$OPTARG" ;;
     h) echo "usage: align [-g [human|mouse]] [-p] [-t threads] -i input-directory -o output-directory"
-    exit
-    ;;
+    exit ;;
     \?) echo "Invalid option -$OPTARG" 1>&2
-    exit 2
-    ;;
+    exit 2 ;;
   esac
 done
 

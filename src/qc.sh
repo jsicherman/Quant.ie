@@ -26,21 +26,37 @@ mkdir -p "$OUT_DIR"
 OUT_DIR="$(realpath $OUT_DIR)"
 cd $IN_DIR
 
+rm -f $OUT_DIR/fastqc.sh
+
 echo "#!/bin/bash" >> $OUT_DIR/fastqc.sh
 echo cd "$(realpath ./)" >> $OUT_DIR/fastqc.sh
 
-i=1
+batch=1
+i=0
 for file in *.fastq*; do
   [ -f "$file" ] || break
   
-  echo "if [ \$SLURM_ARRAY_TASK_ID = $i ]; then" >> $OUT_DIR/fastqc.sh
+  if [ "$(( $i % 10 ))" -eq "0" ]; then
+    echo "if [ \$SLURM_ARRAY_TASK_ID = $batch ]; then" >> $OUT_DIR/fastqc.sh
+  fi
+  
   echo "  fastqc -o $OUT_DIR $file" >> $OUT_DIR/fastqc.sh
-  echo "fi" >> $OUT_DIR/fastqc.sh
+  
+  if [ "$(( ($i + 1) % 10 ))" -eq "0" ]; then
+    echo "fi" >> $OUT_DIR/fastqc.sh
+    ((batch++))
+  fi
+  
   ((i++))
 done
 
-echo "if [ \$SLURM_ARRAY_TASK_ID = $i ]; then" >> $OUT_DIR/fastqc.sh
+if [ "$(( $i % 10 ))" -ne "0" ]; then
+  echo "fi" >> $OUT_DIR/fastqc.sh
+  ((batch++))
+fi
+
+echo "if [ \$SLURM_ARRAY_TASK_ID = $batch ]; then" >> $OUT_DIR/fastqc.sh
 echo "  multiqc ." >> $OUT_DIR/fastqc.sh
 echo "fi" >> $OUT_DIR/fastqc.sh
 
-sbatch --array "1-$i" $OUT_DIR/fastqc.sh
+sbatch --array "1-$batch%5" $OUT_DIR/fastqc.sh
