@@ -2,7 +2,7 @@
 
 STAR_PATH="/space/grp/Pipelines/rnaseq-pipeline/Requirements/STAR/bin/Linux_x86_64/"
 GENOME="human"
-GENOMES_PATH="/cosmos/data/pipeline-output/rnaseq/references/"
+GENOMES_PATH="/cosmos/data/pipeline-output/rnaseq/references"
 GENOME_DIR=$GENOMES_PATH/mm10_ensembl98
 IN_DIR=""
 OUT_DIR=""
@@ -85,7 +85,7 @@ if [ "$PAIRED" = true ]; then
     fi
     
     ZCAT=" "
-    if [[ fileName == "*.fastq.gz" ]]; then
+    if [[ ${forward[$i]} == *fastq.gz ]]; then
       ZCAT="--readFilesCommand zcat "
     fi
     
@@ -95,7 +95,7 @@ if [ "$PAIRED" = true ]; then
     echo mkdir "$(realpath ./)/$fileName" >> scripts/$fileName.sh
     echo cd "$(realpath ./)/$fileName" >> scripts/$fileName.sh
     
-    echo "$STAR_PATH"STAR --genomeDir $GENOME_DIR --genomeLoad $GENOME_LOAD --runThreadN $N_THREAD --readFilesIn "${forward[$i]}" "${reverse[$i]}" $ZCAT--outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --outReadsUnmapped Fastx --limitBAMsortRAM 10000000000 --outFilterMultimapNmax 1 >> scripts/$fileName.sh
+    echo "$STAR_PATH"STAR --genomeDir $GENOME_DIR --genomeLoad $GENOME_LOAD --runThreadN $N_THREAD --readFilesIn "${forward[$i]}" "${reverse[$i]}" $ZCAT--outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --outReadsUnmapped Fastx --limitBAMsortRAM 10000000000 --outFilterMultimapNmax 1 --outFilterScoreMinOverLread 0.1 --outFilterMatchNminOverLread 0.1 >> scripts/$fileName.sh
     echo "$STAR_PATH"STAR --inputBAMfile Aligned.sortedByCoord.out.bam --runThreadN $N_THREAD --bamRemoveDuplicatesType UniqueIdentical --runMode inputAlignmentsFromBAM >> scripts/$fileName.sh
     
     echo mv Log.final.out "../logs/$fileName.out" >> scripts/$fileName.sh
@@ -122,7 +122,7 @@ else
     fileName="${fileQualified%.*}"
     
     # Skip mate-pairs by file name in unpaired mode
-    if [[ $fileName == *"_L002_"* ]]; then
+    if [[ $fileName == *_L002_* ]]; then
       echo "Skipping mate-pair '${fileName}'"
       continue
     fi
@@ -134,7 +134,7 @@ else
     fi
     
     ZCAT=" "
-    if [[ fileName == "*.fastq.gz" ]]; then
+    if [[ ${forward[$i]} == *fastq.gz ]]; then
       ZCAT="--readFilesCommand zcat "
     fi
     
