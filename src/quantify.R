@@ -66,13 +66,13 @@ COUNTS <- mclapply(FILES, function(file) {
   if(PAIRED) {
     reads <- tryCatch(readGAlignmentPairs(file.path(IN_DIR, file), param = PARAM.BAM),
                       error = function(message) {
-                        message('There are no genome reads mapped in BAM') 
+                        message(paste('There are no reads mapped in', file)) 
                         NULL
                       })
   } else {
     reads <- tryCatch(readGAlignments(file.path(IN_DIR, file), param = PARAM.BAM),
                       error = function(message) {
-                        message('There are no genome reads mapped in BAM') 
+                        message(paste('There are no reads mapped in', file)) 
                         NULL
                       })
   }
@@ -117,6 +117,8 @@ COUNTS <- mclapply(FILES, function(file) {
     counts.rRNA <- length(unique(values(subsetByOverlaps(reads, RRNA, ignore.strand = T))$qname))
   }
   
+  message(paste('Quantified', file))
+  
   list(counts = counts %>% Matrix(sparse = T),
        fpkm = fpkm %>% Matrix(sparse = T),
        mitochondrial = counts.mito, rRNA = counts.rRNA, total = total)
@@ -131,15 +133,22 @@ if(length(COUNTS) > 0) {
   # Gene IDs will be on rows, samples will be on columns
   lapply(c('counts', 'fpkm'), function(type) {
     lapply(c('intron', 'exon'), function(pivot) {
-      do.call(cbind, lapply(COUNTS, function(sample)
-        sample[[type]][, pivot]
-      )) %>% as.matrix %>% Matrix(sparse = T) %>%
-        `colnames<-`(names(COUNTS)) %>% saveRDS(file.path(OUT_DIR, 'quantified', paste0(type, '_', pivot, '.rds')))
+      do.call(cbind, lapply(COUNTS, function(sample) {
+        tryCatch(sample[[type]][, pivot],
+                 error = function(message) {
+                   message(paste('No', pivot, type, 'for', sample))
+                   NULL
+                 })
+      })) %>% as.matrix %>% Matrix(sparse = T) %>%
+        `colnames<-`(lapply(1:length(COUNTS), function(sample) {
+          if(length(COUNTS[[sample]]) == 1) NULL
+          else names(COUNTS)[sample]
+        }) %>% unlist) %>% saveRDS(file.path(OUT_DIR, 'quantified', paste0(type, '_', pivot, '.rds')))
     })
   })
   
   # Save quality metrics (number mapping to mitochondrial genes, rRNA and total reads)
   do.call(cbind, lapply(c('mitochondrial', 'rRNA', 'total'), function(pivot) {
-    sapply(names(COUNTS), function(sample) COUNTS[[sample]][[pivot]])
+    sapply(names(COUNTS), function(sample) tryCatch(COUNTS[[sample]][[pivot]], error = function(message) 0))
   })) %>% `colnames<-`(c('mitochondrial', 'rRNA', 'total')) %>% write.table(file.path(OUT_DIR, 'quantified', 'qc.tsv'), quote = F, sep = '\t')
 }
