@@ -1,13 +1,3 @@
-suppressPackageStartupMessages({
-  library(Rsamtools)
-  library(GenomicAlignments)
-  library(edgeR)
-  library(rtracklayer)
-  library(dplyr)
-  library(Matrix)
-  library(parallel)
-})
-
 # Initialize --------------------------------------------------------------
 
 args <- commandArgs(T)
@@ -30,6 +20,16 @@ OUT_DIR <- args[3]
 
 if(length(args) > 3)
   OUT_DIR <- args[4]
+
+suppressPackageStartupMessages({
+  library(Rsamtools)
+  library(GenomicAlignments)
+  library(edgeR)
+  library(rtracklayer)
+  library(dplyr)
+  library(Matrix)
+  library(parallel)
+})
 
 CORES <- 5
 if(length(args) > 4) {
@@ -79,10 +79,11 @@ COUNTS <- mclapply(FILES, function(file) {
   
   
   if(is.null(reads)) {
-    counts.exon <- 0
-    counts.intron <- 0
+    counts <- data.frame(exon = 0, intron = 0) %>% as.matrix
+    fpkm <- data.frame(exon = 0, intron = 0) %>% as.matrix
     counts.mito <- 0
     counts.rRNA <- 0
+    total <- 0
   } else {
     if(PAIRED) {
       total <- length(unique(values(reads %>% first)$qname))
