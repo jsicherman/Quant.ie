@@ -1,9 +1,20 @@
 # Running the Pipeline
-Jordan Sicherman, Sonny Chen, Justin Chee\\
+Jordan Sicherman, Sonny Chen, Justin Chee\
 May 17, 2020
 
 # Introduction
 Here we walk through the workflow of our bioinformatics pipeline. We start with raw FASTQ files, align them to reference genomes, process and quantify these reads, and finally produce count tables from this dataset. Examples of basic analysis and visualization of the data will also be given.
+
+# QC
+It is common to perform quality assessment on raw sequencing reads. This can be performed automatically by running:
+
+`./qc.sh -i input-directory -o output-directory`
+
+For this project, our FASTQ files are located in `/example/fastq/`. We'll run this command first and check out the score report before continuing with the analysis. It is worth noting that this script generates individual [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) reports for every FASTQ file in the specified input directory _as well as_ a [MultiQC](https://multiqc.info/) report summarizing all the samples.
+
+`./qc.sh -i /example/fastq/ -o /example/fastqc/`
+
+FastQC reports will be generated in parallel using Slurm. You should open the MultiQC report and inspect base quality scores, adapter content and etc. to ensure samples are of sufficient quality before moving on.
 
 # Alignment
 We use STAR to perform alignment to a reference genome. STAR aligns the raw reads (FASTQ format) to a reference genome and here we also remove PCR duplicates. Alignments are done in parallel by first generating a set of shell scripts that will be sequentially executed by Slurm.
@@ -21,9 +32,11 @@ We use STAR to perform alignment to a reference genome. STAR aligns the raw read
 
 In my case, FASTQ files are from a paired-end sequencing run from 84 postmortem mouse brain samples and are located in `/example/fastq/`. STAR results will be output to `/example/` and will be permitted to run on 12 threads for speeding up the process.
 
+*Important*: FASTQ files must be gzipped (.fastq.gz) for this script to work.
+
 `./align.sh -g mouse -p -t 12 -i /example/fastq -o /example`
 
-After generating all files, Slurm will begin running the alignments, 3 at a time. This step will take some time (24 hours), but once complete, your file structure will look like the following:
+After generating all files, Slurm will allocate some nodes and begin running the alignments in parallel. This step will take some time (24 hours or longer), but once complete, your file structure will look like the following:
 ```bash
 /example/
 |-- tasks.sh

@@ -177,5 +177,5 @@ done
 
 echo "Processed $(($i-1)) files. Running STAR."
 
-# Allocate three Slurm nodes and run jobs spread across them
-salloc --spread-job -N $N_NODES-$N_NODES sbatch --array "1-$i%$N_NODES" tasks.sh
+# Run jobs spread across Slurm nodes
+sbatch -m cyclic --ntasks-per-node 1 -C thrd64 --array "1-$i%$N_NODES" tasks.sh

@@ -1,8 +1,17 @@
 # Quant.ie
-Pipeline for the quantification of introns and exons. This repository is a reproduction of [PSQ Pipeline](https://github.com/sonnyc247/PSQ_Pipeline/) written by Sonny Chen to work on the Pavlidis lab servers, as well as incorporating some optimizations and tweaks. An example workflow can be found [here](docs/usage.md)
+Pipeline for the quantification of introns and exons. This repository is a reproduction of [PSQ Pipeline](https://github.com/sonnyc247/PSQ_Pipeline/) written by Sonny Chen to work on the Pavlidis lab servers, as well as incorporating some optimizations and tweaks. An example workflow can be found [here](docs/usage.md).
 
 ## Usage
-The pipeline can be run in four steps using the following commands. All assume you're executing commands from within the src directory on your machine.
+The pipeline can be run in five steps using the following commands. All assume you're executing commands from within the src directory on your machine.
+
+### Quality Assessment using FastQC and MultiQC
+`./qc.sh -i input-directory -o output-directory`
+| Flag | Description | Default |
+| ---- | ----------- | ------- |
+| i | The path where your input (fastq.gz) files are. | |
+| o | The path where your output files will be sent. Will be created if it doesn't exist. | |
+
+Generates [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) reports for every FASTQ file in the input directory, and a [MultiQC](https://multiqc.info/) report to summarize all samples.
 
 ### Alignment using STAR
 `./align.sh [-g [human|mouse]] [-p] [-n nodes] [-t threads] -i input-directory -o output-directory`
@@ -30,9 +39,7 @@ Files will be output to the following directories:
 
 Each folder will contain one file per fastq.gz input (either a STAR log file, quantification shell script, bam file (without removing PCR duplicates) and bam file (after removing PCR duplicates), respectively).
 
-If you run into problems trying to execute `./align.sh`, try running `chmod +x align.sh` to ensure you have execute permission on the file.
-
-### Merging BAM
+### Merging BAM with Samtools
 `./merge.sh [-t threads] -i input-directory -o output-directory`
 
 | Flag | Description | Default |
@@ -41,7 +48,7 @@ If you run into problems trying to execute `./align.sh`, try running `chmod +x a
 | i | The path where your input (.bam) files are. | |
 | o | The path where your output files will be sent. Will be created if it doesn't exist. | |
 
-BAM files for the same sample (along multiple lanes) will be merged using samtools. If you run into problems trying to execute `./merge.sh`, try running `chmod +x merge.sh` to ensure you have execute permission on the file.
+BAM files for the same sample (along multiple lanes) will be merged using samtools.
 
 ### Quantification
 `Rscript quantify.R <human|mouse> <paired> <input directory> [output directory] [cores]`
@@ -76,3 +83,10 @@ Echoes the percentage of reads that aligned to mitochondrial and ribosomal genes
     |-- fpkm_exon.rds
     `-- fpkm_intron.rds
 ```
+
+## FAQ
+*Q*: I can't run `./xyz.sh`!\
+*A*: Try running `chmod +x xyz.sh` to ensure you have execute permission on the file.\
+\
+*Q*: `qc.sh` throws an error: `sbatch: error: Batch job submission failed: Invalid job array specification`!\
+*A*: This is caused because Slurm has a limit on how many jobs are allowed in an array (usually 1000). This is a known issue that theoretically applies to `align.sh` as well. I'm looking into a fix.
