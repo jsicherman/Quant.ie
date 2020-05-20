@@ -1,5 +1,5 @@
 # Running the Pipeline
-Jordan Sicherman, Sonny Chen, Justin Chee
+Jordan Sicherman, Sonny Chen, Justin Chee\\
 May 17, 2020
 
 # Introduction
@@ -8,12 +8,13 @@ Here we walk through the workflow of our bioinformatics pipeline. We start with 
 # Alignment
 We use STAR to perform alignment to a reference genome. STAR aligns the raw reads (FASTQ format) to a reference genome and here we also remove PCR duplicates. Alignments are done in parallel by first generating a set of shell scripts that will be sequentially executed by Slurm.
 
-`./align.sh [-g [human|mouse]] [-p] [-t threads] -i input-directory -o output-directory`
+`./align.sh [-g [human|mouse]] [-p] [-n nodes] [-t threads] -i input-directory -o output-directory`
 
 | Flag | Description | Default |
 | ---- | ----------- | ------- |
 | g | Select the genome to align to. The specific reference genome used is either hg38_ensembl (human) or mm10_ensembl (mouse). | human |
 | p | Whether or not to samples are paired-end. | false |
+| n | How many nodes to distribute the job over. | 4 |
 | t | How many threads to run STAR with. | 10 |
 | i | The path where your input (fastq.gz) files are. | |
 | o | The path where your output files will be sent. Will be created if it doesn't exist. | |
@@ -23,6 +24,7 @@ In my case, FASTQ files are from a paired-end sequencing run from 84 postmortem 
 `./align.sh -g mouse -p -t 12 -i /example/fastq -o /example`
 
 After generating all files, Slurm will begin running the alignments, 3 at a time. This step will take some time (24 hours), but once complete, your file structure will look like the following:
+```bash
 /example/
 |-- tasks.sh
 |-- fastq
@@ -31,7 +33,7 @@ After generating all files, Slurm will begin running the alignments, 3 at a time
 `-- bam
     |-- raw
     `-- processed
-
+```
 # Merging
 In some cases, you may have many FASTQ files for one sample (ie. if the sample spanned multiple lanes). These can be merged simply using samtools after alignment to ensure that the count matrices generated later have only one column per sample. We will merge our processed BAM files (genome-aligned and PCR duplicates removed) again using 12 threads and outputting results into `bam_merged/processed`.
 
@@ -46,6 +48,7 @@ A genomic reference is used at this point, which is built for you automatically.
 `Rscript buildReference.R mouse`
 
 References will be placed in a reference folder in the pipeline directory. Your pipeline should look like the following:
+```bash
 /Quant.ie/
 |-- README.md
 |-- docs
@@ -53,7 +56,7 @@ References will be placed in a reference folder in the pipeline directory. Your 
     |-- mouse.Rdata
     `-- human.Rdata
 |-- src
-
+```
 ## Generating Counts
 Count matrices are commonly used in genomic analyses. This pipeline generates a matrix for reads aligning to exonic regions and intronic regions separately, which may be useful in downstream analysis. Generating these matrices is done with the following command:
 
@@ -73,6 +76,7 @@ To generate count matrices for our mouse sample, we simply execute:
 
 Once completed, you should have the following directory tree:
 
+```bash
 /example/
 |-- tasks.sh
 |-- fastq
@@ -89,7 +93,7 @@ Once completed, you should have the following directory tree:
     |-- fpkm_exon.rds
     |-- fpkm_intron.rds
     `-- qc.tsv
-
+```
 # Visualization
 Count matrices can be used to visualize basic quality metrics such as number of reads that aligned and what genomic regions they aligned to. Some helpful figures can be generated using the following command:
 
