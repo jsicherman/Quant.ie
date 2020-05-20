@@ -88,5 +88,3 @@ Echoes the percentage of reads that aligned to mitochondrial and ribosomal genes
 *Q*: I can't run `./xyz.sh`!\
 *A*: Try running `chmod +x xyz.sh` to ensure you have execute permission on the file.\
 \
-*Q*: `qc.sh` throws an error: `sbatch: error: Batch job submission failed: Invalid job array specification`!\
-*A*: This is caused because Slurm has a limit on how many jobs are allowed in an array (usually 1000). This is a known issue that theoretically applies to `align.sh` as well. I'm looking into a fix.

@@ -2,7 +2,8 @@
 
 STAR_PATH="/space/grp/Pipelines/rnaseq-pipeline/Requirements/STAR/bin/Linux_x86_64/"
 GENOME="human"
-GENOME_DIR="/cosmos/data/pipeline-output/rnaseq/references/mm10_ensembl98"
+GENOMES_PATH="/cosmos/data/pipeline-output/rnaseq/references/"
+GENOME_DIR=$GENOMES_PATH/mm10_ensembl98
 IN_DIR=""
 OUT_DIR=""
 N_NODES=4
@@ -13,8 +14,8 @@ while getopts ":g:i:o:pht:n" opt; do
   case $opt in
     g) GENOME="$OPTARG"
     case $GENOME in
-      mouse) GENOME_DIR="/cosmos/data/pipeline-output/rnaseq/references/mm10_ensembl98" ;;
-      human) GENOME_DIR="/cosmos/data/pipeline-output/rnaseq/references/hg38_ensembl98" ;;
+      mouse) GENOME_DIR=$GENOMES_PATH/mm10_ensembl98 ;;
+      human) GENOME_DIR=$GENOMES_PATH/hg38_ensembl98 ;;
     esac ;;
     i) IN_DIR="$OPTARG" ;;
     o) OUT_DIR="$OPTARG" ;;
@@ -83,13 +84,18 @@ if [ "$PAIRED" = true ]; then
       GENOME_LOAD=LoadAndRemove
     fi
     
+    ZCAT=" "
+    if [[ fileName == "*.fastq.gz" ]]; then
+      ZCAT="--readFilesCommand zcat "
+    fi
+    
     rm -f "scripts/$fileName.sh"
     
     echo "#!/bin/bash" >> scripts/$fileName.sh
     echo mkdir "$(realpath ./)/$fileName" >> scripts/$fileName.sh
     echo cd "$(realpath ./)/$fileName" >> scripts/$fileName.sh
     
-    echo "$STAR_PATH"STAR --genomeDir $GENOME_DIR --genomeLoad $GENOME_LOAD --runThreadN $N_THREAD --readFilesIn "${forward[$i]}" "${reverse[$i]}" --readFilesCommand zcat --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --outReadsUnmapped Fastx --limitBAMsortRAM 10000000000 --outFilterMultimapNmax 1 >> scripts/$fileName.sh
+    echo "$STAR_PATH"STAR --genomeDir $GENOME_DIR --genomeLoad $GENOME_LOAD --runThreadN $N_THREAD --readFilesIn "${forward[$i]}" "${reverse[$i]}" $ZCAT--outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --outReadsUnmapped Fastx --limitBAMsortRAM 10000000000 --outFilterMultimapNmax 1 >> scripts/$fileName.sh
     echo "$STAR_PATH"STAR --inputBAMfile Aligned.sortedByCoord.out.bam --runThreadN $N_THREAD --bamRemoveDuplicatesType UniqueIdentical --runMode inputAlignmentsFromBAM >> scripts/$fileName.sh
     
     echo mv Log.final.out "../logs/$fileName.out" >> scripts/$fileName.sh
@@ -127,13 +133,18 @@ else
       GENOME_LOAD=LoadAndRemove
     fi
     
+    ZCAT=" "
+    if [[ fileName == "*.fastq.gz" ]]; then
+      ZCAT="--readFilesCommand zcat "
+    fi
+    
     rm -f "scripts/$fileName.sh"
     
     echo "#!/bin/bash" >> scripts/$fileName.sh
     echo mkdir "$(realpath ./)/$fileName" >> scripts/$fileName.sh
     echo cd "$(realpath ./)/$fileName" >> scripts/$fileName.sh
     
-    echo "$STAR_PATH"STAR --genomeDir $GENOME_DIR --genomeLoad $GENOME_LOAD --runThreadN $N_THREAD --readFilesIn $fileName --readFilesCommand zcat --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --outReadsUnmapped Fastx --limitBAMsortRAM 10000000000 --outFilterMultimapNmax 1 >> scripts/$fileName.sh
+    echo "$STAR_PATH"STAR --genomeDir $GENOME_DIR --genomeLoad $GENOME_LOAD --runThreadN $N_THREAD --readFilesIn $fileName $ZCAT--outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --outReadsUnmapped Fastx --limitBAMsortRAM 10000000000 --outFilterMultimapNmax 1 >> scripts/$fileName.sh
     echo "$STAR_PATH"STAR --inputBAMfile Aligned.sortedByCoord.out.bam --runThreadN $N_THREAD --bamRemoveDuplicatesType UniqueIdentical --runMode inputAlignmentsFromBAM >> scripts/$fileName.sh
     
     echo mv Log.final.out "../logs/$fileName.out" >> scripts/$fileName.sh

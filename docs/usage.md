@@ -27,12 +27,10 @@ We use STAR to perform alignment to a reference genome. STAR aligns the raw read
 | p | Whether or not to samples are paired-end. | false |
 | n | How many nodes to distribute the job over. | 4 |
 | t | How many threads to run STAR with. | 10 |
-| i | The path where your input (fastq.gz) files are. | |
+| i | The path where your input (fastq or fastq.gz) files are. | |
 | o | The path where your output files will be sent. Will be created if it doesn't exist. | |
 
 In my case, FASTQ files are from a paired-end sequencing run from 84 postmortem mouse brain samples and are located in `/example/fastq/`. STAR results will be output to `/example/` and will be permitted to run on 12 threads for speeding up the process.
-
-*Important*: FASTQ files must be gzipped (.fastq.gz) for this script to work.
 
 `./align.sh -g mouse -p -t 12 -i /example/fastq -o /example`
 

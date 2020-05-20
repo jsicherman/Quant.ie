@@ -59,4 +59,4 @@ echo "if [ \$SLURM_ARRAY_TASK_ID = $batch ]; then" >> $OUT_DIR/fastqc.sh
 echo "  multiqc ." >> $OUT_DIR/fastqc.sh
 echo "fi" >> $OUT_DIR/fastqc.sh
 
-sbatch --array "1-$batch%5" $OUT_DIR/fastqc.sh
+sbatch --array "1-$batch" $OUT_DIR/fastqc.sh
