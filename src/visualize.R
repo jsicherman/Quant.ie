@@ -38,23 +38,24 @@ qc.STAR <- do.call(rbind, lapply(names(exons.count), function(sample) {
 
 # QC ----------------------------------------------------------------------
 
-qc <- qc %>% as.matrix %>% mutate(mitochondrial = mitochondrial / total, rRNA = rRNA / total) %>%
-  reshape2::melt(varnames = c('Sample', 'Metric')) %>%
+qc <- qc %>% mutate(mitochondrial = mitochondrial / total, rRNA = rRNA / total) %>%
+  `rownames<-`(rownames(qc)) %>% as.matrix %>% reshape2::melt(varnames = c('Sample', 'Metric')) %>%
   mutate(Metric = factor(Metric, levels = c('mitochondrial', 'rRNA', 'total'), labels = c('Mitochondrial', 'Ribosomal', 'Total')))
 
 qc[qc$Metric != 'Total', ] %>%
   ggplot(aes(Sample, value, fill = Metric)) + 
   scale_y_continuous(expand = c(0, 0), labels = scales::percent) +
   ggtitle('Quality Metrics') + labs(tag = 'A') +
+  theme(axis.text.x = element_blank()) +
   
   qc[qc$Metric == 'Total', ] %>%
   ggplot(aes(Sample, value, fill = Metric)) +
   scale_y_continuous(expand = c(0, 0)) +
-  theme(strip.text = element_blank()) +
+  theme(strip.text = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1)) +
   ggtitle('Total Reads') + labs(tag = 'B') +
   
   plot_layout(guides = 'collect', ncol = 1) &
-  theme(legend.position = 'none', axis.text.x = element_text(angle = 45, hjust = 1), strip.background = element_blank()) &
+  theme(legend.position = 'none', strip.background = element_blank()) &
   xlab(element_blank()) & ylab(element_blank()) & facet_wrap(~Metric, ncol = 1, scales = 'free_y') &
   geom_bar(stat = 'identity') -> grid
 
@@ -73,15 +74,17 @@ data.plot <- data.frame(Sample = names(exons.count),
 data.plot %>%
   ggplot(aes(Sample, Reads.fraction, fill = Type)) +
   scale_y_continuous(expand = c(0, 0), labels = scales::percent) +
+  theme(axis.text.x = element_blank()) +
   ggtitle('Fraction') + labs(tag = 'A') +
   
   data.plot %>%
     ggplot(aes(Sample, Reads, fill = Type)) +
     scale_y_continuous(expand = c(0, 0)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle('Raw') + labs(tag = 'B') +
   
   plot_layout(guides = 'collect', ncol = 1) &
-  theme(legend.position = 'bottom', axis.text.x = element_text(angle = 45, hjust = 1)) &
+  theme(legend.position = 'bottom') &
   xlab(element_blank()) & ylab(element_blank()) & geom_bar(stat = 'identity') -> grid
 
 ggsave2(file.path(FILE_PATH, 'quantified', 'mapping_distribution.pdf'), grid, width = 11, height = 6)
@@ -95,15 +98,17 @@ data.plot <- data.frame(Sample = names(exons.count),
 data.plot %>%
   ggplot(aes(Sample, Reads.fraction, fill = Location)) +
   scale_y_continuous(expand = c(0, 0), labels = scales::percent) +
+  theme(axis.text.x = element_blank()) +
   ggtitle('Fraction') + labs(tag = 'A') +
   
   data.plot %>%
     ggplot(aes(Sample, Reads, fill = Location)) +
     scale_y_continuous(expand = c(0, 0)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle('Raw') + labs(tag = 'B') +
   
   plot_layout(guides = 'collect', ncol = 1) &
-  theme(legend.position = 'bottom', axis.text.x = element_text(angle = 45, hjust = 1)) &
+  theme(legend.position = 'bottom') &
   xlab(element_blank()) & ylab(element_blank()) & geom_bar(stat = 'identity') -> grid
 
 ggsave2(file.path(FILE_PATH, 'quantified', 'count_distribution.pdf'), grid, width = 11, height = 6)

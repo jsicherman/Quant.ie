@@ -117,5 +117,10 @@ The directory provided should be the base directory of your project since it use
 The following figures will be generated:
 
 ![](count_distribution.jpeg)
+A distribution of reads aligning to introns and exons per sample.
 
 ![](mapping_distribution.jpeg)
+A complete mapping distribution of reads per sample
+
+![](qc.jpeg)
+Quality metrics, including fraction of reads aligning to mitochondrial and rRNA.

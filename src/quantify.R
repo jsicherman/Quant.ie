@@ -166,7 +166,7 @@ if(length(COUNTS) > 0) {
     lapply(c('intron', 'exon'), function(pivot) {
       do.call(cbind, lapply(COUNTS, function(sample) {
         sample[[type]][, pivot]
-      })) %>% as.matrix %>% Matrix(sparse = T) %>% `colnames<-`(names(COUNTS)[sample]) %>%
+      })) %>% as.matrix %>% Matrix(sparse = T) %>% `colnames<-`(names(COUNTS)) %>%
         saveRDS(file.path(OUT_DIR, 'quantified', paste0(type, '_', pivot, '.rds')))
     })
   })
