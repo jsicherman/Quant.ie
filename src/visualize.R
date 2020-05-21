@@ -3,6 +3,7 @@ library(dplyr)
 library(ggplot2)
 library(cowplot)
 library(patchwork)
+library(reshape2)
 theme_set(theme_cowplot())
 
 FILE_PATH <- '../output'
@@ -35,50 +36,74 @@ qc.STAR <- do.call(rbind, lapply(names(exons.count), function(sample) {
   })
 })) %>% `rownames<-`(names(exons.count))
 
-data.frame(Sample = names(exons.count),
-           Type = c(rep('Exonic', length(exons.count)), rep('Intronic', length(introns.count)),
-                    rep('Intergenic', length(exons.count)), rep('Multimapped', length(exons.count)),
-                    rep('Unmapped', length(exons.count))),
-           Reads = c(exons.count, introns.count,
-                     qc.STAR[, 'unique'] - exons.count - introns.count, qc.STAR[, 'multimapped'],
-                     qc.STAR[, 'unmapped']) / qc.STAR[, 'total']) %>%
-  ggplot(aes(Sample, Reads, fill = Type)) + geom_bar(stat = 'identity') +
+# QC ----------------------------------------------------------------------
+
+qc <- qc %>% as.matrix %>% mutate(mitochondrial = mitochondrial / total, rRNA = rRNA / total) %>%
+  reshape2::melt(varnames = c('Sample', 'Metric')) %>%
+  mutate(Metric = factor(Metric, levels = c('mitochondrial', 'rRNA', 'total'), labels = c('Mitochondrial', 'Ribosomal', 'Total')))
+
+qc[qc$Metric != 'Total', ] %>%
+  ggplot(aes(Sample, value, fill = Metric)) + 
+  scale_y_continuous(expand = c(0, 0), labels = scales::percent) +
+  ggtitle('Quality Metrics') + labs(tag = 'A') +
+  
+  qc[qc$Metric == 'Total', ] %>%
+  ggplot(aes(Sample, value, fill = Metric)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme(strip.text = element_blank()) +
+  ggtitle('Total Reads') + labs(tag = 'B') +
+  
+  plot_layout(guides = 'collect', ncol = 1) &
+  theme(legend.position = 'none', axis.text.x = element_text(angle = 45, hjust = 1), strip.background = element_blank()) &
+  xlab(element_blank()) & ylab(element_blank()) & facet_wrap(~Metric, ncol = 1, scales = 'free_y') &
+  geom_bar(stat = 'identity') -> grid
+
+ggsave2(file.path(FILE_PATH, 'quantified', 'qc.pdf'), grid, width = 11, height = 6)
+
+# Mapping -----------------------------------------------------------------
+
+data.plot <- data.frame(Sample = names(exons.count),
+                        Type = c(rep('Exonic', length(exons.count)), rep('Intronic', length(introns.count)),
+                                 rep('Intergenic', length(exons.count)), rep('Multimapped', length(exons.count)),
+                                 rep('Unmapped', length(exons.count))),
+                        Reads = c(exons.count, introns.count,
+                                  qc.STAR[, 'unique'] - exons.count - introns.count, qc.STAR[, 'multimapped'],
+                                  qc.STAR[, 'unmapped'])) %>% mutate(Reads.fraction = Reads / qc.STAR[, 'total'])
+
+data.plot %>%
+  ggplot(aes(Sample, Reads.fraction, fill = Type)) +
   scale_y_continuous(expand = c(0, 0), labels = scales::percent) +
   ggtitle('Fraction') + labs(tag = 'A') +
-  data.frame(Sample = names(exons.count),
-              Type = c(rep('Exonic', length(exons.count)), rep('Intronic', length(introns.count)),
-                       rep('Intergenic', length(exons.count)), rep('Multimapped', length(exons.count)),
-                       rep('Unmapped', length(exons.count))),
-              Reads = c(exons.count, introns.count,
-                        qc.STAR[, 'unique'] - exons.count, qc.STAR[, 'multimapped'],
-                        qc.STAR[, 'unmapped'])) %>%
-     ggplot(aes(Sample, Reads, fill = Type)) + geom_bar(stat = 'identity') +
-     scale_y_continuous(expand = c(0, 0)) +
-     ggtitle('Raw') + labs(tag = 'B') + plot_layout(guides = 'collect', ncol = 1) &
+  
+  data.plot %>%
+    ggplot(aes(Sample, Reads, fill = Type)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    ggtitle('Raw') + labs(tag = 'B') +
+  
+  plot_layout(guides = 'collect', ncol = 1) &
   theme(legend.position = 'bottom', axis.text.x = element_text(angle = 45, hjust = 1)) &
-  xlab(element_blank()) & ylab(element_blank()) -> grid
+  xlab(element_blank()) & ylab(element_blank()) & geom_bar(stat = 'identity') -> grid
 
 ggsave2(file.path(FILE_PATH, 'quantified', 'mapping_distribution.pdf'), grid, width = 11, height = 6)
 
-data.frame(Sample = names(exons.count),
+# Introns/Exons -----------------------------------------------------------
+
+data.plot <- data.frame(Sample = names(exons.count),
                         Location = c(rep('Exon', length(exons.count)), rep('Intron', length(introns.count))) %>% factor(c('Intron', 'Exon')),
-                        Reads = c(exons.count, introns.count) / (exons.count + introns.count)) %>%
-               ggplot(aes(Sample, Reads, fill = Location)) + geom_bar(stat = 'identity') +
-               scale_y_continuous(expand = c(0, 0), labels = scales::percent) +
-               ggtitle('Fraction') + labs(tag = 'A') +
-             data.frame(Sample = names(exons.count),
-                        Location = c(rep('Exon', length(exons.count)), rep('Intron', length(introns.count))) %>% factor(c('Intron', 'Exon')),
-                        Reads = c(exons.count, introns.count)) %>%
-               ggplot(aes(Sample, Reads, fill = Location)) + geom_bar(stat = 'identity') +
-               theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-               scale_y_continuous(expand = c(0, 0)) +
-               ggtitle('Raw') + labs(tag = 'B') + plot_layout(guides = 'collect', ncol = 1) &
+                        Reads = c(exons.count, introns.count)) %>% mutate(Reads.fraction = Reads / (introns.count + exons.count))
+
+data.plot %>%
+  ggplot(aes(Sample, Reads.fraction, fill = Location)) +
+  scale_y_continuous(expand = c(0, 0), labels = scales::percent) +
+  ggtitle('Fraction') + labs(tag = 'A') +
+  
+  data.plot %>%
+    ggplot(aes(Sample, Reads, fill = Location)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    ggtitle('Raw') + labs(tag = 'B') +
+  
+  plot_layout(guides = 'collect', ncol = 1) &
   theme(legend.position = 'bottom', axis.text.x = element_text(angle = 45, hjust = 1)) &
-  xlab(element_blank()) & ylab(element_blank()) -> grid
+  xlab(element_blank()) & ylab(element_blank()) & geom_bar(stat = 'identity') -> grid
 
 ggsave2(file.path(FILE_PATH, 'quantified', 'count_distribution.pdf'), grid, width = 11, height = 6)
-
-print('Mitochondrial Reads (%):')
-print(setNames(round(qc$mitochondrial / qc$total * 100, 2), rownames(qc)))
-print('Ribosomal Reads (%):')
-print(setNames(round(qc$rRNA / qc$total * 100, 2), rownames(qc)))

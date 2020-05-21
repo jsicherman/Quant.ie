@@ -40,8 +40,8 @@ if(length(args) > 4) {
 }
 options(mc.cores = CORES)
 
-if(!dir.exists(file.path(OUT_DIR, 'quantified')))
-  dir.create(file.path(OUT_DIR, 'quantified'), recursive = T)
+if(!dir.exists(file.path(OUT_DIR, 'quantified', 'logs')))
+  dir.create(file.path(OUT_DIR, 'quantified', 'logs'), recursive = T)
 
 # Build the reference if it doesn't exist already.
 if(!file.exists(file.path('../references', paste0(SPECIES, '.Rdata')))) {
@@ -60,19 +60,37 @@ RRNA <- EXONS[Filter(function(gene) gene %in% names(EXONS), ANNOTATIONS$gene_nam
 
 FILES <- list.files(IN_DIR, '\\.bam$')
 
+message(paste('Starting quantification of', length(FILES), 'files.'))
+
 # Generate a list of sparse Matrices (for each sample) that has quantified introns,
 # exons, etc. in columns and gene IDs on rows.
 COUNTS <- mclapply(FILES, function(file) {
+  # Return a tmp file if we have it.
+  if(file.exists(file.path(OUT_DIR, 'quantified', paste0('tmp_', substring(file, 0, nchar(file) - 4), '.rds'))))
+    return(readRDS(file.path(OUT_DIR, 'quantified', paste0('tmp_', substring(file, 0, nchar(file) - 4), '.rds'))))
+  
+  file.create(file.path(OUT_DIR, 'quantified', 'logs', paste0(substring(file, 0, nchar(file) - 4), '.out')))
+  
+  cat(paste(format(Sys.time(), '%b %d %H:%M:%S'), '.....', 'starting quantification'),
+      file = file.path(OUT_DIR, 'quantified', 'logs', paste0(substring(file, 0, nchar(file) - 4), '.out')),
+      sep = '\n')
+  
   if(PAIRED) {
     reads <- tryCatch(readGAlignmentPairs(file.path(IN_DIR, file), param = PARAM.BAM),
                       error = function(message) {
-                        message(paste('There are no reads mapped in', file)) 
+                        cat(paste(format(Sys.time(), '%b %d %H:%M:%S'), '.....', 'no reads mapped in BAM'),
+                            file = file.path(OUT_DIR, 'quantified', 'logs', paste0(substring(file, 0, nchar(file) - 4), '.out')),
+                            sep = '\n',
+                            append = T)
                         NULL
                       })
   } else {
     reads <- tryCatch(readGAlignments(file.path(IN_DIR, file), param = PARAM.BAM),
                       error = function(message) {
-                        message(paste('There are no reads mapped in', file)) 
+                        cat(paste(format(Sys.time(), '%b %d %H:%M:%S'), '.....', 'no reads mapped in BAM'),
+                            file = file.path(OUT_DIR, 'quantified', 'logs', paste0(substring(file, 0, nchar(file) - 4), '.out')),
+                            sep = '\n',
+                            append = T)
                         NULL
                       })
   }
@@ -125,11 +143,16 @@ COUNTS <- mclapply(FILES, function(file) {
     }
   }
   
-  message(paste('Quantified', file))
+  cat(paste(format(Sys.time(), '%b %d %H:%M:%S'), '.....', 'done'),
+      file = file.path(OUT_DIR, 'quantified', 'logs', paste0(substring(file, 0, nchar(file) - 4), '.out')),
+      sep = '\n',
+      append = T)
   
-  list(counts = counts %>% Matrix(sparse = T),
-       fpkm = fpkm %>% Matrix(sparse = T),
-       mitochondrial = counts.mito, rRNA = counts.rRNA, total = total)
+  ret <- list(counts = counts %>% Matrix(sparse = T),
+              fpkm = fpkm %>% Matrix(sparse = T),
+              mitochondrial = counts.mito, rRNA = counts.rRNA, total = total)
+  saveRDS(ret, file.path(OUT_DIR, 'quantified', paste0('tmp_', substring(file, 0, nchar(file) - 4), '.rds')))
+  ret
 })
 
 names(COUNTS) <- unlist(lapply(FILES, tools::file_path_sans_ext))
